@@ -1,10 +1,7 @@
 ﻿using Newbe.Mahua.Greenstal.IGrains;
 using Newbe.Mahua.MahuaEvents;
-using Orleans;
-using Orleans.Runtime;
-using Polly;
+using Newbe.Mahua.Plugins.Greenstal.Services;
 using System;
-using System.Threading.Tasks;
 
 namespace Newbe.Mahua.Plugins.Greenstal.MahuaEvents
 {
@@ -25,60 +22,25 @@ namespace Newbe.Mahua.Plugins.Greenstal.MahuaEvents
             _clientFactory = clientFactory;
         }
 
+        private static IDisposable timmer;
         public void ProcessFriendMessage(PrivateMessageFromFriendReceivedContext context)
         {
-            var clusterClient = _clientFactory.GetClient();
-            var result = clusterClient.GetGrain<ITestGrain>(context.FromQq).GetId().GetAwaiter().GetResult();
-            _mahuaApi.SendPrivateMessage(context.FromQq)
-                .Text(result)
-                .Done();
-        }
-    }
-
-    public interface IClientFactory
-    {
-        IClusterClient GetClient();
-    }
-
-    public class ClientFactory : IClientFactory
-    {
-        private static Func<IClientBuilder> _builderFunc;
-        private static IClusterClient _client;
-        private static readonly Policy RetryPolicy = Policy.Handle<SiloUnavailableException>()
-            .WaitAndRetryAsync(5, i => TimeSpan.FromSeconds(5));
-        public static async Task<IClusterClient> Build(Func<IClientBuilder> builderFunc)
-        {
-            _builderFunc = builderFunc;
-            await RetryPolicy.ExecuteAsync(() =>
+            var group = "610394020";
+            if (context.FromQq == "472158246")
             {
-                _client?.Dispose();
-                _client = builderFunc().Build();
-                return _client.Connect();
-            });
-            return _client;
-        }
-
-        readonly object _connectLock = new object();
-
-        public IClusterClient GetClient()
-        {
-            if (!_client.IsInitialized)
-            {
-                lock (_connectLock)
+                if (context.Message.StartsWith("#"))
                 {
-                    if (!_client.IsInitialized)
-                    {
-                        RetryPolicy.ExecuteAsync(() =>
-                        {
-                            _client?.Dispose();
-                            _client = _builderFunc().Build();
-                            return _client.Connect();
-                        }).GetAwaiter().GetResult();
-                    }
+                    var clusterClient = _clientFactory.GetClient();
+                    var greenHatKeeper = clusterClient.GetGrain<IGreenHatKeeper>("0");
+                    var amount = decimal.Parse(context.Message.Substring(1));
+                    greenHatKeeper.Create(amount);
+                    _mahuaApi.SendGroupMessage("610394020")
+                        .Text($"新的原谅帽已经生成，价值：{amount} 原谅水晶")
+                        .Done();
+                    _mahuaApi.SendGroupMessage(group)
+                        .Text($"群主创建了一个原谅帽，价值：{amount} 原谅水晶，发送 ## 来抢吧!");
                 }
             }
-            return _client;
         }
-
     }
 }

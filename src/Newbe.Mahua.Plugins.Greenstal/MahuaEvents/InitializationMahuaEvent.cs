@@ -1,5 +1,6 @@
 ﻿using Newbe.Mahua.Logging;
 using Newbe.Mahua.MahuaEvents;
+using Newbe.Mahua.Plugins.Greenstal.Services;
 using NLog.Extensions.Logging;
 using Orleans;
 
